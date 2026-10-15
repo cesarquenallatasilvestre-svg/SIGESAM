@@ -3,6 +3,7 @@
 // Los datos se guardan en el navegador de este dispositivo.
 const CLAVE_REGISTROS = 'registros';
 const CLAVE_ACTIVIDAD = 'actividadActual';
+const CLAVE_ACTIVIDADES = 'actividadesRegistradas';
 const MATERIAS_VALIDAS = [
   'Análisis y Diseño II',
   'Investigación Operativa II',
@@ -14,6 +15,13 @@ const MATERIAS_VALIDAS = [
 
 let registros = cargarJSON(CLAVE_REGISTROS, []);
 let actividadActual = cargarJSON(CLAVE_ACTIVIDAD, null);
+// Conserva todas las actividades creadas, no solamente la última.
+let actividades = cargarJSON(CLAVE_ACTIVIDADES, []);
+if (!Array.isArray(actividades)) actividades = [];
+// Migración: si existía una actividad guardada en la versión anterior, se incorpora al historial.
+if (actividadActual && actividadActual.nombre && !actividades.some(a => a.nombre === actividadActual.nombre && a.fecha === actividadActual.fecha && a.hora === actividadActual.hora)) {
+  actividades.push(actividadActual);
+}
 let temporizadorNotificacion;
 
 function cargarJSON(clave, valorPorDefecto) {
@@ -30,6 +38,7 @@ function guardarDatos() {
   try {
     localStorage.setItem(CLAVE_REGISTROS, JSON.stringify(registros));
     localStorage.setItem(CLAVE_ACTIVIDAD, JSON.stringify(actividadActual));
+    localStorage.setItem(CLAVE_ACTIVIDADES, JSON.stringify(actividades));
     return true;
   } catch (error) {
     console.error('No se pudieron guardar los datos:', error);
@@ -75,14 +84,32 @@ function registrarActividad() {
   }
 
   const { fecha, hora } = obtenerFechaHora();
-  actividadActual = { nombre: nombreActividad, fecha, hora };
+  // Si el nombre ya existe, vuelve a seleccionarla; si no, la agrega al historial.
+  const existente = actividades.find(a => a.nombre.toLocaleLowerCase() === nombreActividad.toLocaleLowerCase());
+  if (existente) {
+    actividadActual = existente;
+  } else {
+    actividadActual = { id: crearId(), nombre: nombreActividad, fecha, hora };
+    actividades.push(actividadActual);
+  }
 
   if (!guardarDatos()) return;
 
   campo.value = '';
   mostrarActividad();
+  mostrarListaActividades();
   mostrarMensaje('mensajeActividad', 'Actividad guardada correctamente.', 'exito');
-  mostrarNotificacion('Actividad registrada correctamente.', 'exito');
+  mostrarNotificacion('Actividad registrada y guardada.', 'exito');
+}
+
+function seleccionarActividad(id) {
+  const seleccionada = actividades.find(a => a.id === id || (!a.id && a.nombre === id));
+  if (!seleccionada) return;
+  actividadActual = seleccionada;
+  if (!guardarDatos()) return;
+  mostrarActividad();
+  mostrarListaActividades();
+  mostrarNotificacion(`Actividad actual: ${actividadActual.nombre}`, 'exito');
 }
 
 function mostrarActividad() {
@@ -96,6 +123,59 @@ function mostrarActividad() {
     elementoActividad.textContent = 'No hay ninguna actividad registrada.';
     elementoFecha.textContent = '';
   }
+}
+
+function mostrarListaActividades() {
+  const lista = document.getElementById('listaActividades');
+  if (!lista) return;
+  lista.replaceChildren();
+  if (actividades.length === 0) {
+    lista.appendChild(crearElemento('p', 'texto-suave texto-pequeno', 'Todavía no hay actividades guardadas.'));
+    return;
+  }
+  [...actividades].reverse().forEach((actividad) => {
+    const fila = crearElemento('div', 'actividad-fila', '');
+    const boton = crearElemento('button', 'actividad-guardada', '');
+    boton.type = 'button';
+    const nombre = crearElemento('strong', '', actividad.nombre);
+    const fecha = crearElemento('span', '', `${actividad.fecha || 'Fecha no disponible'} · ${actividad.hora || ''}`);
+    boton.append(nombre, fecha);
+    if (actividadActual && ((actividad.id && actividad.id === actividadActual.id) || (!actividad.id && actividad.nombre === actividadActual.nombre && actividad.fecha === actividadActual.fecha))) {
+      boton.classList.add('actividad-seleccionada');
+      boton.setAttribute('aria-current', 'true');
+    }
+    boton.addEventListener('click', () => seleccionarActividad(actividad.id || actividad.nombre));
+
+    const eliminar = crearElemento('button', 'boton-eliminar-actividad', 'Eliminar');
+    eliminar.type = 'button';
+    eliminar.setAttribute('aria-label', `Eliminar actividad ${actividad.nombre}`);
+    eliminar.addEventListener('click', () => eliminarActividad(actividad));
+    fila.append(boton, eliminar);
+    lista.appendChild(fila);
+  });
+}
+
+function eliminarActividad(actividad) {
+  const confirmacion = confirm(`¿Eliminar la actividad "${actividad.nombre}"?\n\nTambién se eliminarán los registros de asistencia asociados a esta actividad. Esta acción no se puede deshacer.`);
+  if (!confirmacion) return;
+
+  const eraActual = actividadActual && (
+    (actividad.id && actividadActual.id === actividad.id) ||
+    (!actividad.id && actividadActual.nombre === actividad.nombre && actividadActual.fecha === actividad.fecha)
+  );
+  actividades = actividades.filter(a => actividad.id ? a.id !== actividad.id : !(a.nombre === actividad.nombre && a.fecha === actividad.fecha && a.hora === actividad.hora));
+  const cantidadAntes = registros.length;
+  registros = registros.filter(registro => registro.actividad !== actividad.nombre);
+  const eliminados = cantidadAntes - registros.length;
+
+  if (eraActual) actividadActual = null;
+  if (!guardarDatos()) return;
+
+  mostrarActividad();
+  mostrarListaActividades();
+  mostrarRegistros();
+  actualizarContador();
+  mostrarNotificacion(`Actividad eliminada. Registros de asistencia eliminados: ${eliminados}.`, 'exito');
 }
 
 function obtenerMateriasSeleccionadas() {
@@ -356,4 +436,8 @@ document.addEventListener('DOMContentLoaded', () => {
   mostrarActividad();
   actualizarContador();
   configurarAnimaciones();
+  // Restaurar en pantalla tanto el historial como las actividades al volver a abrir la página.
+  mostrarRegistros();
+  mostrarListaActividades();
 });
+

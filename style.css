@@ -155,3 +155,19 @@ form > label { margin-top: 2px; }
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
   .revelar { opacity: 1; transform: none; }
 }
+
+
+/* Historial persistente de actividades */
+.historial-actividades { margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid rgba(100, 116, 139, .22); }
+.historial-actividades h3 { margin: 0 0 .4rem; font-size: 1rem; }
+.lista-actividades { display: grid; gap: .55rem; margin-top: .7rem; }
+.actividad-fila { display: flex; align-items: stretch; gap: .5rem; }
+.actividad-fila .actividad-guardada { flex: 1; min-width: 0; }
+.boton-eliminar-actividad { flex: 0 0 auto; align-self: stretch; padding: .55rem .75rem; border: 1px solid rgba(197, 59, 76, .35); border-radius: .8rem; background: rgba(197, 59, 76, .08); color: #b42336; font: inherit; font-size: .85rem; font-weight: 650; cursor: pointer; transition: background .2s ease, transform .2s ease; }
+.boton-eliminar-actividad:hover { background: rgba(197, 59, 76, .16); transform: translateY(-1px); }
+@media (max-width: 420px) { .actividad-fila { gap: .35rem; } .boton-eliminar-actividad { padding: .45rem .55rem; } }
+.actividad-guardada { display: flex; flex-direction: column; align-items: flex-start; gap: .2rem; width: 100%; padding: .8rem .9rem; border: 1px solid rgba(100, 116, 139, .25); border-radius: .8rem; background: rgba(255,255,255,.75); color: inherit; text-align: left; cursor: pointer; transition: transform .2s ease, border-color .2s ease, background .2s ease; }
+.actividad-guardada:hover { transform: translateY(-2px); border-color: #3977d5; }
+.actividad-guardada span { font-size: .8rem; opacity: .75; }
+.actividad-guardada.actividad-seleccionada { border-color: #1769c2; background: rgba(35, 116, 210, .10); box-shadow: inset 3px 0 #1769c2; }
+
